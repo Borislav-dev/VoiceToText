@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common Actions -->
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_share">Share</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_try_again">Try Again</string>
+    <string name="action_save">Save</string>
+    <string name="action_back">Back</string>
+
+    <!-- Login Screen -->
+    <string name="login_title">Voice to Text</string>
+    <string name="login_sign_in_google">Sign in with Google</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">My Notes</string>
+    <string name="home_settings_desc">Settings</string>
+    <string name="home_record_desc">Record</string>
+    <string name="home_empty_title">No notes yet</string>
+    <string name="home_empty_subtitle">Tap the mic to record your first note!</string>
+    <string name="home_delete_dialog_title">Delete Note</string>
+    <string name="home_delete_dialog_text">This will delete your entire conversation, are you sure you want to delete it?</string>
+    <string name="home_untitled_note">Untitled Note</string>
+
+    <!-- Recording Screen -->
+    <string name="record_limit_title">Time Limit Reached</string>
+    <string name="record_limit_text">You\'ve reached the 5-minute limit for free recordings. Your audio is currently being processed by our AI Assistant.</string>
+    <string name="record_upgrade_premium">Upgrade to Premium</string>
+    <string name="record_view_result">View Result</string>
+    <string name="record_paywall_title">Out of Free Records</string>
+    <string name="record_paywall_text">You have used all 3 free recordings. Upgrade to Premium for unlimited access.</string>
+    <string name="record_upgrade">Upgrade</string>
+    <string name="record_maybe_later">Maybe Later</string>
+    <string name="record_tap_to_record">Tap to Record</string>
+    <string name="record_title_hint">Recording title (optional)</string>
+    <string name="record_keywords_hint">Track specific words/names (optional)</string>
+    <string name="record_keywords_placeholder">e.g. Kotlin, Supabase, John</string>
+    <string name="record_start_desc">Start Recording</string>
+    <string name="record_free_records_left">Free records left: %1$d/3</string>
+    <string name="record_recording_status">Recording…</string>
+    <string name="record_stop_desc">Stop</string>
+    <string name="record_stop_and_transcribe">Stop &amp; Transcribe</string>
+    <string name="record_transcribing_status">AI is transcribing…</string>
+    <string name="record_transcribing_subtitle">This may take a moment</string>
+    <string name="record_error_title">Something went wrong</string>
+
+    <!-- Note Details Screen -->
+    <string name="note_action_summarize">Summarize</string>
+    <string name="note_action_items">Action Items</string>
+    <string name="note_action_to_email">To Email</string>
+    <string name="note_action_translate">Translate</string>
+    <string name="note_delete_dialog_title">Delete note?</string>
+    <string name="note_delete_dialog_text">This action cannot be undone.</string>
+    <string name="note_details_title">Note Details</string>
+    <string name="note_back_desc">Back</string>
+    <string name="note_ai_thinking">AI is thinking…</string>
+    <string name="note_ai_response">AI Response</string>
+    <string name="note_copy_ai_response_desc">Copy AI Response</string>
+    <string name="note_share_ai_response_desc">Share AI Response</string>
+    <string name="note_meeting_insights">Meeting Insights</string>
+    <string name="note_error_title">Something went wrong</string>
+    <string name="action_copy_error">Copy Error</string>
+    <string name="note_details_content_label">Note Content</string>
+    <string name="note_ai_actions_title">AI Actions</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_back_desc">Back</string>
+    <string name="settings_profile_plan">Profile &amp; Plan</string>
+    <string name="settings_current_plan">Current Plan: %1$s</string>
+    <string name="settings_unlimited_recordings">Unlimited recordings</string>
+    <string name="settings_recordings_remaining">%1$d recordings remaining</string>
+    <string name="settings_upgrade_pro">Upgrade to Pro</string>
+    <string name="settings_preferences">Preferences</string>
+    <string name="settings_ui_language">UI Language</string>
+    <string name="settings_system_default">System Default</string>
+    <string name="settings_dark_theme">Dark Theme</string>
+    <string name="settings_how_to_use">How to use</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="settings_terms_of_service">Terms of Service</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_sign_out">Sign Out</string>
+    <string name="settings_legal">Legal</string>
+    <string name="settings_danger_zone">Danger Zone</string>
+    <string name="settings_delete_account">Delete Account</string>
+    <string name="settings_delete_account_title">Delete Account?</string>
+    <string name="settings_delete_account_text">Are you sure you want to permanently delete your account and all your voice notes? This action cannot be undone.</string>
+    <!-- Paywall Screen -->
+    <string name="paywall_title">Unlock Premium</string>
+    <string name="paywall_feature_1">Unlimited AI Transcriptions</string>
+    <string name="paywall_feature_2">Cloud Audio Storage</string>
+    <string name="paywall_feature_3">Priority Support</string>
+    <string name="paywall_monthly">Monthly</string>
+    <string name="paywall_monthly_price">$4.99/mo</string>
+    <string name="paywall_yearly">Yearly</string>
+    <string name="paywall_yearly_price">$39.99/yr</string>
+    <string name="paywall_yearly_savings">Save 33%</string>
+    <string name="paywall_best_value">Best Value</string>
+    <string name="paywall_cta">Start Free Trial</string>
+    <string name="paywall_restore">Restore Purchases</string>
+    <string name="paywall_terms">Terms of Service</string>
+    <string name="paywall_privacy">Privacy Policy</string>
+
+    <!-- Onboarding Screen -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_slide1_title">Turn Voice into Text Instantly</string>
+    <string name="onboarding_slide1_desc">Record meetings, lectures, and personal notes. We automatically transcribe everything with pinpoint accuracy.</string>
+    <string name="onboarding_slide2_title">Smart Summaries &amp; Action Items</string>
+    <string name="onboarding_slide2_desc">Don't just read transcripts. Let AI generate concise summaries and extract action items instantly.</string>
+    <string name="onboarding_slide3_title">Never Lose a Thought</string>
+    <string name="onboarding_slide3_desc">Safely store all your recordings and transcripts securely in the cloud, accessible anytime across all your devices.</string>
+</resources>
