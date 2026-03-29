@@ -74,8 +74,6 @@ import org.example.project.presentation.viewmodels.NoteDetailsViewModel
 import org.jetbrains.compose.resources.stringResource
 import voicetotext.composeapp.generated.resources.*
 
-// Since these need to be evaluated in a Composable to get string resources,
-// we'll change AiAction to hold the StringResource instance instead of a raw String.
 private data class AiAction(
     val labelRes: org.jetbrains.compose.resources.StringResource,
     val icon: ImageVector,
@@ -116,7 +114,6 @@ fun NoteDetailsScreen(
         "English", "Bulgarian", "German", "Spanish", "French", "Italian", "Russian"
     )
 
-    // Delete confirmation dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -231,47 +228,76 @@ fun NoteDetailsScreen(
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.outline
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            // Audio Player (no card border)
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Audio Player (Elevated Card UI)
                             if (note.audioUrl != null) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        modifier = Modifier.fillMaxWidth()
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    colors = CardDefaults.elevatedCardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    ),
+                                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp)
                                     ) {
-                                        IconButton(
-                                            onClick = {
-                                                if (isPlaying) viewModel.pauseAudio()
-                                                else viewModel.playAudio(note.audioUrl)
-                                            }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Icon(
-                                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    if (isPlaying) viewModel.pauseAudio()
+                                                    else viewModel.playAudio(note.audioUrl)
+                                                },
+                                                modifier = Modifier.size(48.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(32.dp)
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.width(8.dp))
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Slider(
+                                                    value = audioPosition.toFloat(),
+                                                    onValueChange = { viewModel.seekAudio(it) },
+                                                    valueRange = 0f..audioDuration.toFloat().coerceAtLeast(1f),
+                                                    colors = SliderDefaults.colors(
+                                                        thumbColor = MaterialTheme.colorScheme.primary,
+                                                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                                    ),
+                                                    modifier = Modifier.height(24.dp)
+                                                )
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = formatMillis(audioPosition),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = formatMillis(audioDuration),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
                                         }
-                                        
-                                        Text(
-                                            text = "${formatMillis(audioPosition)} / ${formatMillis(audioDuration)}",
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
                                     }
-                                    
-                                    Slider(
-                                        value = audioPosition.toFloat(),
-                                        onValueChange = { viewModel.seekAudio(it) },
-                                        valueRange = 0f..audioDuration.toFloat().coerceAtLeast(1f),
-                                        colors = SliderDefaults.colors(
-                                            thumbColor = MaterialTheme.colorScheme.primary,
-                                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                                        )
-                                    )
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(24.dp))
                             }
 
                             Text(
@@ -281,20 +307,29 @@ fun NoteDetailsScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
 
+                            // AI Actions (Match Parent Column)
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 aiActions.forEach { action ->
                                     if (action.type == "Translate") {
-                                        Box {
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                            val currentLangCode = currentTargetLanguage?.take(2)?.uppercase()
+                                            val displayText = if (currentLangCode != null) {
+                                                "${stringResource(action.labelRes)} - $currentLangCode"
+                                            } else {
+                                                stringResource(action.labelRes)
+                                            }
+
                                             AssistChip(
                                                 onClick = { isTranslateMenuExpanded = true },
-                                                label = { Text(stringResource(action.labelRes)) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                label = { Text(displayText) },
                                                 leadingIcon = {
                                                     Icon(
                                                         imageVector = action.icon,
-                                                        contentDescription = stringResource(action.labelRes),
+                                                        contentDescription = displayText,
                                                         modifier = Modifier.size(AssistChipDefaults.IconSize)
                                                     )
                                                 }
@@ -318,6 +353,7 @@ fun NoteDetailsScreen(
                                     } else {
                                         AssistChip(
                                             onClick = { viewModel.performAiAction(action.type, note.content) },
+                                            modifier = Modifier.fillMaxWidth(),
                                             label = { Text(stringResource(action.labelRes)) },
                                             leadingIcon = {
                                                 Icon(
@@ -343,7 +379,7 @@ fun NoteDetailsScreen(
                                         colors = CardDefaults.elevatedCardColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
                                         ),
-                                        shape = RoundedCornerShape(16.dp)
+                                        shape = RoundedCornerShape(4.dp)
                                     ) {
                                         Column(modifier = Modifier.padding(16.dp)) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -391,7 +427,7 @@ fun NoteDetailsScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.height(32.dp))
                     }
                 }

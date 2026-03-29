@@ -53,7 +53,7 @@ class DeepgramTranscriptionRepositoryImpl(
 
     companion object {
         private const val DEEPGRAM_BASE_URL =
-            "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&detect_language=true&paragraphs=true&diarize=true"
+            "https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&detect_language=true&paragraphs=true&diarize=true"
         private const val CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
         private val DEFAULT_KEYWORDS = listOf("Supabase", "Kotlin", "Jetpack Compose", "API")
