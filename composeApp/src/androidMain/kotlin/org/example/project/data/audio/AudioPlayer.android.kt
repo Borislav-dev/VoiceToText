@@ -15,7 +15,6 @@ import org.example.project.domain.audio.IAudioPlayer
 
 actual class AudioPlayer actual constructor(context: Any?) : IAudioPlayer {
 
-    private val appContext: Context = (context as Context).applicationContext
     private var mediaPlayer: MediaPlayer? = null
 
     private val scope = CoroutineScope(Dispatchers.Main)

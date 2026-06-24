@@ -8,9 +8,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.example.project.domain.audio.IAudioPlayer
 import org.example.project.domain.model.Note
-import org.example.project.domain.repository.INotesRepository
-import org.example.project.domain.repository.ITranscriptionRepository
 import org.example.project.domain.share.IShareManager
+import org.example.project.domain.usecase.AnalyzeTextUseCase
+import org.example.project.domain.usecase.DeleteNoteUseCase
+import org.example.project.domain.usecase.GetNoteUseCase
+import org.example.project.domain.usecase.UpdateNoteUseCase
 
 sealed interface NoteDetailsState {
     data object Loading : NoteDetailsState
@@ -20,8 +22,10 @@ sealed interface NoteDetailsState {
 
 class NoteDetailsViewModel(
     private val noteId: String,
-    private val notesRepository: INotesRepository,
-    private val transcriptionRepository: ITranscriptionRepository,
+    private val getNoteUseCase: GetNoteUseCase,
+    private val updateNoteUseCase: UpdateNoteUseCase,
+    private val deleteNoteUseCase: DeleteNoteUseCase,
+    private val analyzeTextUseCase: AnalyzeTextUseCase,
     private val audioPlayer: IAudioPlayer,
     private val shareManager: IShareManager
 ) : ViewModel() {
@@ -56,17 +60,9 @@ class NoteDetailsViewModel(
 
     private fun loadNote() {
         viewModelScope.launch {
-            try {
-                // In a real app, you should observe a Flow from the repository 
-                // so the UI updates automatically when the Worker finishes
-                val note = notesRepository.getNoteById(noteId)
-                if (note != null) {
-                    _state.value = NoteDetailsState.Success(note)
-                } else {
-                    _state.value = NoteDetailsState.Error("Note not found")
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            getNoteUseCase(noteId).onSuccess { note ->
+                _state.value = NoteDetailsState.Success(note)
+            }.onFailure { e ->
                 _state.value = NoteDetailsState.Error(e.message ?: "Failed to load note")
             }
         }
@@ -91,42 +87,31 @@ class NoteDetailsViewModel(
         }
 
         viewModelScope.launch {
-            try {
-                val result = transcriptionRepository.analyzeText(instruction, text)
-                result.onSuccess { responseText ->
-                    val currentState = _state.value
-                    if (currentState is NoteDetailsState.Success) {
-                        val note = currentState.note
-                        val updatedNote = if (type == "Translate" && targetLanguage != null) {
-                            note.copy(content = responseText, language = targetLanguage)
-                        } else note
-                        
-                        if (updatedNote != note) {
-                            notesRepository.updateNote(updatedNote)
-                            _state.value = NoteDetailsState.Success(updatedNote)
-                        }
+            analyzeTextUseCase(instruction, text).onSuccess { responseText ->
+                val currentState = _state.value
+                if (currentState is NoteDetailsState.Success) {
+                    val note = currentState.note
+                    val updatedNote = if (type == "Translate" && targetLanguage != null) {
+                        note.copy(content = responseText, language = targetLanguage)
+                    } else note
+                    
+                    if (updatedNote != note) {
+                        updateNoteUseCase(updatedNote)
+                        _state.value = NoteDetailsState.Success(updatedNote)
                     }
-                    _aiResponse.value = responseText
-                }.onFailure {
-                    it.printStackTrace()
-                    _aiResponse.value = "Failed to process Action. Please try again."
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                _aiResponse.value = "An error occurred during processing."
-            } finally {
-                _isAiLoading.value = false
+                _aiResponse.value = responseText
+            }.onFailure {
+                _aiResponse.value = "Failed to process Action. Please try again."
             }
+            _isAiLoading.value = false
         }
     }
 
     fun deleteNote(onDeleted: () -> Unit) {
         viewModelScope.launch {
-            try {
-                notesRepository.deleteNote(noteId)
+            deleteNoteUseCase(noteId).onSuccess {
                 onDeleted()
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -177,16 +162,13 @@ class NoteDetailsViewModel(
                 content = _editedContent.value
             )
             viewModelScope.launch {
-                val result = notesRepository.updateNote(updatedNote)
-                _isAiLoading.value = false
-                result.onSuccess {
+                updateNoteUseCase(updatedNote).onSuccess {
                     _state.value = NoteDetailsState.Success(updatedNote)
                     _isEditing.value = false
-                }
-                result.onFailure {
-                    it.printStackTrace()
+                }.onFailure {
                     _isEditing.value = false
                 }
+                _isAiLoading.value = false
             }
         }
     }

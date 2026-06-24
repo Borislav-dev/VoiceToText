@@ -67,7 +67,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.m3.Markdown
-import org.example.project.auth.getPlatformContext
 import org.example.project.data.io.formatTimestamp
 import org.example.project.presentation.viewmodels.NoteDetailsState
 import org.example.project.presentation.viewmodels.NoteDetailsViewModel
@@ -96,7 +95,6 @@ fun NoteDetailsScreen(
     val state by viewModel.state.collectAsState()
     val aiResponse by viewModel.aiResponse.collectAsState()
     val isAiLoading by viewModel.isAiLoading.collectAsState()
-    val platformContext = getPlatformContext()
     val clipboardManager = LocalClipboardManager.current
     var isTranslateMenuExpanded by remember { mutableStateOf(false) }
     var currentTargetLanguage by remember { mutableStateOf<String?>(null) }
@@ -272,7 +270,7 @@ fun NoteDetailsScreen(
                                                     onValueChange = { viewModel.seekAudio(it) },
                                                     valueRange = 0f..audioDuration.toFloat().coerceAtLeast(1f),
                                                     colors = SliderDefaults.colors(
-                                                        thumbColor = MaterialTheme.colorScheme.primary,
+                                                        thumbColor = MaterialTheme.colorScheme.secondary,
                                                         activeTrackColor = MaterialTheme.colorScheme.primary,
                                                         inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                                                     ),
@@ -382,7 +380,12 @@ fun NoteDetailsScreen(
                                         shape = RoundedCornerShape(4.dp)
                                     ) {
                                         Column(modifier = Modifier.padding(16.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
+
+                                            // Хедър на картата
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
                                                 Icon(
                                                     Icons.Default.AutoAwesome,
                                                     contentDescription = null,
@@ -395,30 +398,40 @@ fun NoteDetailsScreen(
                                                     style = MaterialTheme.typography.titleSmall,
                                                     color = MaterialTheme.colorScheme.secondary
                                                 )
+
+
                                                 if (isAiLoading) {
                                                     Spacer(modifier = Modifier.weight(1f))
-                                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(18.dp),
+                                                        strokeWidth = 2.dp,
+                                                        color = MaterialTheme.colorScheme.secondary
+                                                    )
                                                 }
                                             }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            aiResponse?.let {
-                                                Markdown(content = it)
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                TextButton(
-                                                    onClick = { clipboardManager.setText(AnnotatedString(it)) },
-                                                    modifier = Modifier.align(Alignment.End)
-                                                ) {
-                                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Copy")
+
+                                            // Текстът и Copy бутонът се показват САМО когато НЕ зареждаме
+                                            if (!isAiLoading) {
+                                                aiResponse?.let {
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    Markdown(content = it)
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    TextButton(
+                                                        onClick = { clipboardManager.setText(AnnotatedString(it)) },
+                                                        modifier = Modifier.align(Alignment.End)
+                                                    ) {
+                                                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text("Copy")
+                                                    }
                                                 }
                                             }
+
                                         }
                                     }
                                     Spacer(modifier = Modifier.height(16.dp))
                                 }
                             }
-
                             HorizontalDivider()
                             Spacer(modifier = Modifier.height(16.dp))
 

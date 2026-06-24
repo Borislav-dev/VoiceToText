@@ -9,7 +9,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -22,7 +21,6 @@ import org.example.project.BuildKonfig
 import org.example.project.data.io.readFileBytes
 import org.example.project.domain.repository.ITranscriptionRepository
 
-// ── Deepgram response models ────────────────────────────────────────────────
 
 @Serializable
 data class DeepgramResponse(
@@ -72,7 +70,7 @@ class DeepgramTranscriptionRepositoryImpl(
         }
 
         val keywordParams = allKeywords.joinToString("") { keyword ->
-            "&keywords=${keyword.replace(" ", "+")}"
+            "&keyterm=${keyword.replace(" ", "+")}"
         }
 
         return "$DEEPGRAM_BASE_URL$keywordParams"
