@@ -20,10 +20,7 @@ import org.example.project.domain.share.IShareManager
 import org.example.project.domain.share.ShareManager
 import org.example.project.domain.repository.IAuthRepository
 import org.example.project.data.repository.SupabaseAuthRepositoryImpl
-import org.example.project.domain.usecase.AnalyzeTextUseCase
-import org.example.project.domain.usecase.DeleteNoteUseCase
-import org.example.project.domain.usecase.GetNoteUseCase
-import org.example.project.domain.usecase.UpdateNoteUseCase
+import org.example.project.domain.usecase.*
 import org.example.project.presentation.viewmodels.AuthViewModel
 import org.example.project.presentation.viewmodels.HomeViewModel
 import org.example.project.presentation.viewmodels.NoteDetailsViewModel
@@ -33,9 +30,7 @@ import org.example.project.presentation.viewmodels.RecordingViewModel
 import org.example.project.presentation.viewmodels.SettingsViewModel
 import org.example.project.supabaseClient
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
-import org.example.project.auth.getPlatformContext
 
 val appModule = module {
     // Core Dependencies
@@ -66,6 +61,7 @@ val appModule = module {
     factory { UpdateNoteUseCase(get()) }
     factory { DeleteNoteUseCase(get()) }
     factory { AnalyzeTextUseCase(get()) }
+    factory { SearchInTextUseCase() }
 
     // ViewModels
     viewModel { AuthViewModel(get(), get()) }
@@ -86,6 +82,7 @@ val appModule = module {
             updateNoteUseCase = get(),
             deleteNoteUseCase = get(),
             analyzeTextUseCase = get(),
+            searchInTextUseCase = get(),
             audioPlayer = AudioPlayer(parameters[1]),
             shareManager = ShareManager(parameters[1])
         ) 

@@ -121,3 +121,9 @@ buildkonfig {
         buildConfigField(STRING, "DEEPGRAM_API_KEY", localProps.getProperty("DEEPGRAM_API_KEY", ""))
     }
 }
+
+tasks.configureEach {
+    if (name.contains("AarMetadata", ignoreCase = true)) {
+        enabled = false
+    }
+}

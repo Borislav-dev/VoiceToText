@@ -40,7 +40,6 @@ class RecordingViewModel(
 
     companion object {
         private const val FREE_TIER_LIMIT_SECONDS = 300 // 5 minutes
-        private const val WARNING_THRESHOLD_SECONDS = 270 // 4:30 = last 30s warning
         private const val MAX_FREE_RECORDS = 3
     }
 
@@ -69,57 +68,56 @@ class RecordingViewModel(
     private var pendingTitle: String = ""
 
     init {
-        loadSubscription()
+        // Начално зареждане при създаване на VM
+        viewModelScope.launch {
+            loadSubscriptionInternal()
+        }
     }
 
-    private fun loadSubscription() {
-        viewModelScope.launch {
-            subscriptionRepository.getSubscription()
-                .onSuccess { sub ->
-                    _isPremium.value = sub.isPremium
-                    _freeRecordsLeft.value = sub.freeRecordsLeft
-                    println("Subscription loaded: premium=${sub.isPremium}, freeRecordsLeft=${sub.freeRecordsLeft}")
-                }
-                .onFailure { e ->
-                    println("Failed to load subscription: ${e.message}")
-                    // Keep defaults: not premium, 3 free records
-                }
-        }
+    private suspend fun loadSubscriptionInternal() {
+        subscriptionRepository.getSubscription()
+            .onSuccess { sub ->
+                _isPremium.value = sub.isPremium
+                _freeRecordsLeft.value = sub.freeRecordsLeft
+                println("SUBSCRIPTION_DEBUG: State Updated -> isPremium=${sub.isPremium}, left=${sub.freeRecordsLeft}")
+            }
+            .onFailure { e ->
+                println("SUBSCRIPTION_DEBUG: State Update Failed: ${e.message}")
+            }
     }
 
     fun updateTrackedKeywords(keywords: String) {
         _trackedKeywords.value = keywords
     }
 
-    fun formatSeconds(totalSeconds: Int): String {
-        val minutes = totalSeconds / 60
-        val seconds = totalSeconds % 60
-        val mm = if (minutes < 10) "0$minutes" else "$minutes"
-        val ss = if (seconds < 10) "0$seconds" else "$seconds"
-        return "$mm:$ss"
-    }
-
     fun startRecording() {
-        // Check free tier record limit before starting
-        if (!_isPremium.value && _freeRecordsLeft.value <= 0) {
-            _showPaywallDialog.value = true
-            return
-        }
-
         viewModelScope.launch {
+            // 1. Първо подсигуряваме статуса
+            loadSubscriptionInternal()
+            
+            val userIsPremium = _isPremium.value
+            println("SUBSCRIPTION_DEBUG: startRecording session - isPremium=$userIsPremium")
+
+            // 2. Проверка за лимит на брой записи (само за Free)
+            if (!userIsPremium && _freeRecordsLeft.value <= 0) {
+                _showPaywallDialog.value = true
+                return@launch
+            }
+
             val fileName = "recording_${Clock.System.now().toEpochMilliseconds()}"
             audioRecorder.startRecording(fileName)
             _recordingSeconds.value = 0
             _state.value = RecordingState.Recording
 
-            // Start timer coroutine
+            // 3. Стартираме таймера
             timerJob = viewModelScope.launch {
                 while (_state.value is RecordingState.Recording) {
                     delay(1000L)
                     _recordingSeconds.value += 1
 
-                    // Check free tier time limit
-                    if (!_isPremium.value && _recordingSeconds.value >= FREE_TIER_LIMIT_SECONDS) {
+                    // ВАЖНО: Ограничението от 5 мин се задейства САМО ако потребителят НЕ е Premium
+                    if (!userIsPremium && _recordingSeconds.value >= FREE_TIER_LIMIT_SECONDS) {
+                        println("SUBSCRIPTION_DEBUG: Limit reached for non-premium user. Stopping...")
                         _showTimeLimitDialog.value = true
                         stopAndProcessRecording(pendingTitle)
                         break
@@ -136,13 +134,11 @@ class RecordingViewModel(
 
         viewModelScope.launch {
             try {
-                // 1. Stop the recorder and get the file path
                 val filePath = audioRecorder.stopRecording()
                 val finalDurationSeconds = _recordingSeconds.value
                 val finalDurationFormatted = formatSeconds(finalDurationSeconds)
                 _state.value = RecordingState.Transcribing
 
-                // 2. Validate file before sending
                 val fileBytes = withContext(Dispatchers.Default) {
                     org.example.project.data.io.readFileBytes(filePath)
                 }
@@ -150,18 +146,15 @@ class RecordingViewModel(
                     throw IllegalStateException("Recording file is empty at: $filePath")
                 }
 
-                // 3. Send to Deepgram for transcription
                 val transcriptionResult = transcriptionRepository.transcribeAudio(filePath)
                 var transcribedText = transcriptionResult.getOrThrow()
 
-                // 3.5 AI Meeting Assistant pipeline
                 if (transcribedText.isNotBlank() && transcribedText != "No speech detected.") {
                     val keywords = _trackedKeywords.value.ifBlank { null }
                     val cleanupResult = transcriptionRepository.cleanupTranscript(transcribedText, keywords)
                     cleanupResult.onSuccess { transcribedText = it }
                 }
 
-                // 3.8 Upload Audio
                 val now = Clock.System.now().toEpochMilliseconds()
                 val noteId = "note_$now"
                 
@@ -169,14 +162,8 @@ class RecordingViewModel(
                 notesRepository.uploadAudio(filePath, noteId)
                     .onSuccess { url ->
                         audioUrl = url
-                        println("Audio uploaded successfully: $url")
-                    }
-                    .onFailure { e ->
-                        // Proceed with null audioUrl to prevent transcript data loss
-                        println("Failed to upload audio: ${e.message}")
                     }
 
-                // 4. Save the note to Supabase
                 val noteTitle = title.ifBlank {
                     "Recording from ${formatTimestamp(now)}"
                 }
@@ -190,29 +177,30 @@ class RecordingViewModel(
                     audioUrl = audioUrl
                 )
                 notesRepository.saveNote(note)
-
-                // 5. Increment recordings used counter
                 profileRepository.incrementRecordingsUsed()
 
-                // 6. Decrement free record count (if not premium)
+                // Намаляваме свободните записи само ако потребителят НЕ е Premium
                 if (!_isPremium.value) {
                     subscriptionRepository.decrementFreeRecord()
                         .onSuccess {
                             _freeRecordsLeft.value = (_freeRecordsLeft.value - 1).coerceAtLeast(0)
-                            println("Free record used. Remaining: ${_freeRecordsLeft.value}")
-                        }
-                        .onFailure { e ->
-                            println("Failed to decrement free record: ${e.message}")
                         }
                 }
 
-                // 7. Done!
                 _state.value = RecordingState.Success(noteId)
             } catch (e: Exception) {
                 e.printStackTrace()
                 _state.value = RecordingState.Error(e.message ?: "An unknown error occurred")
             }
         }
+    }
+
+    fun formatSeconds(totalSeconds: Int): String {
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        val mm = if (minutes < 10) "0$minutes" else "$minutes"
+        val ss = if (seconds < 10) "0$seconds" else "$seconds"
+        return "$mm:$ss"
     }
 
     fun dismissTimeLimitDialog() {
@@ -226,5 +214,9 @@ class RecordingViewModel(
     fun resetState() {
         _state.value = RecordingState.Idle
         _recordingSeconds.value = 0
+    }
+
+    fun updateEditedTitle(title: String) {
+        pendingTitle = title
     }
 }

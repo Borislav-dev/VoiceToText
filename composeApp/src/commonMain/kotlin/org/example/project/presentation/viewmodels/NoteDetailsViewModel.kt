@@ -9,10 +9,7 @@ import kotlinx.coroutines.launch
 import org.example.project.domain.audio.IAudioPlayer
 import org.example.project.domain.model.Note
 import org.example.project.domain.share.IShareManager
-import org.example.project.domain.usecase.AnalyzeTextUseCase
-import org.example.project.domain.usecase.DeleteNoteUseCase
-import org.example.project.domain.usecase.GetNoteUseCase
-import org.example.project.domain.usecase.UpdateNoteUseCase
+import org.example.project.domain.usecase.*
 
 sealed interface NoteDetailsState {
     data object Loading : NoteDetailsState
@@ -26,6 +23,7 @@ class NoteDetailsViewModel(
     private val updateNoteUseCase: UpdateNoteUseCase,
     private val deleteNoteUseCase: DeleteNoteUseCase,
     private val analyzeTextUseCase: AnalyzeTextUseCase,
+    private val searchInTextUseCase: SearchInTextUseCase,
     private val audioPlayer: IAudioPlayer,
     private val shareManager: IShareManager
 ) : ViewModel() {
@@ -38,6 +36,10 @@ class NoteDetailsViewModel(
 
     private val _isAiLoading = MutableStateFlow(false)
     val isAiLoading: StateFlow<Boolean> = _isAiLoading.asStateFlow()
+
+    // Persistent Target Language for all AI actions
+    private val _currentTargetLanguage = MutableStateFlow<String?>(null)
+    val currentTargetLanguage: StateFlow<String?> = _currentTargetLanguage.asStateFlow()
 
     // Audio Playback State
     val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
@@ -54,6 +56,16 @@ class NoteDetailsViewModel(
     private val _editedContent = MutableStateFlow("")
     val editedContent: StateFlow<String> = _editedContent.asStateFlow()
 
+    // Search State
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<IntRange>>(emptyList())
+    val searchResults: StateFlow<List<IntRange>> = _searchResults.asStateFlow()
+
+    private val _currentResultIndex = MutableStateFlow(-1)
+    val currentResultIndex: StateFlow<Int> = _currentResultIndex.asStateFlow()
+
     init {
         loadNote()
     }
@@ -68,12 +80,47 @@ class NoteDetailsViewModel(
         }
     }
 
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+        val currentState = _state.value
+        if (currentState is NoteDetailsState.Success && query.isNotBlank()) {
+            val matches = searchInTextUseCase(currentState.note.content, query)
+            _searchResults.value = matches
+            _currentResultIndex.value = if (matches.isNotEmpty()) 0 else -1
+        } else {
+            _searchResults.value = emptyList()
+            _currentResultIndex.value = -1
+        }
+    }
+
+    fun goToNextSearchResult() {
+        val results = _searchResults.value
+        if (results.isNotEmpty()) {
+            _currentResultIndex.value = (_currentResultIndex.value + 1) % results.size
+        }
+    }
+
+    fun goToPreviousSearchResult() {
+        val results = _searchResults.value
+        if (results.isNotEmpty()) {
+            val nextIndex = _currentResultIndex.value - 1
+            _currentResultIndex.value = if (nextIndex < 0) results.size - 1 else nextIndex
+        }
+    }
+
     fun performAiAction(type: String, text: String, targetLanguage: String? = null) {
+        // If it's a translation, update the persistent target language
+        if (type == "Translate" && targetLanguage != null) {
+            _currentTargetLanguage.value = targetLanguage
+        }
+
+        val effectiveLanguage = targetLanguage ?: _currentTargetLanguage.value
+
         _isAiLoading.value = true
         _aiResponse.value = "AI is processing..."
         
-        val langRule = if (targetLanguage != null) {
-            "You MUST format your output and generate ALL text EXCLUSIVELY in $targetLanguage. Under NO circumstances should you use any other language."
+        val langRule = if (effectiveLanguage != null) {
+            "You MUST format your output and generate ALL text (headers and content) EXCLUSIVELY in $effectiveLanguage. Under NO circumstances should you use any other language."
         } else {
             "You MUST generate your response EXCLUSIVELY in the exact same language as the input text. Under NO circumstances should you translate it."
         }
@@ -82,24 +129,22 @@ class NoteDetailsViewModel(
             "Summary" -> "You are a professional assistant. Summarize the following text concisely. $langRule"
             "Action Items" -> "You are a professional assistant. Extract action items from the following text as a bulleted list. $langRule"
             "To Email" -> "You are a professional assistant. Format the following text as a professional email. $langRule"
-            "Translate" -> "You are a professional translator. Translate the following text into ${targetLanguage}. Provide ONLY the translated text, without any conversational filler or markdown."
+            "Translate" -> """
+                You are a professional translator expert in technical and conversational context. 
+                Translate the ENTIRE provided text into $effectiveLanguage.
+                
+                CRITICAL REQUIREMENTS:
+                1. TRANSLATE ALL HEADERS: You MUST translate section headers like '### 🎯 Tracked Mentions', '### ✅ Action Items', and '### 📝 Original Transcript' into their natural and correct equivalents in $effectiveLanguage.
+                2. CONTEXTUAL ACCURACY: Ensure the context and specific meaning within each section are preserved and accurately translated.
+                3. PRESERVE FORMATTING: Keep all Markdown formatting (e.g., #, ##, **, -, 1.), newlines, and emojis exactly as they are in the source.
+                4. COMPLETE TRANSLATION: Do not omit any part of the text. Translate every word.
+                5. NO META-TALK: Provide ONLY the translated text.
+            """.trimIndent()
             else -> "You are a professional assistant. Analyze the following text. $langRule"
         }
 
         viewModelScope.launch {
             analyzeTextUseCase(instruction, text).onSuccess { responseText ->
-                val currentState = _state.value
-                if (currentState is NoteDetailsState.Success) {
-                    val note = currentState.note
-                    val updatedNote = if (type == "Translate" && targetLanguage != null) {
-                        note.copy(content = responseText, language = targetLanguage)
-                    } else note
-                    
-                    if (updatedNote != note) {
-                        updateNoteUseCase(updatedNote)
-                        _state.value = NoteDetailsState.Success(updatedNote)
-                    }
-                }
                 _aiResponse.value = responseText
             }.onFailure {
                 _aiResponse.value = "Failed to process Action. Please try again."

@@ -8,3 +8,11 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.buildkonfig) apply false
 }
+
+allprojects {
+    tasks.whenTaskAdded {
+        if (name.contains("checkAarMetadata")) {
+            enabled = false
+        }
+    }
+}

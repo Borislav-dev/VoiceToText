@@ -31,6 +31,10 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -62,9 +66,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.m3.Markdown
 import org.example.project.data.io.formatTimestamp
@@ -107,6 +114,10 @@ fun NoteDetailsScreen(
     val isEditing by viewModel.isEditing.collectAsState()
     val editedTitle by viewModel.editedTitle.collectAsState()
     val editedContent by viewModel.editedContent.collectAsState()
+
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val currentResultIndex by viewModel.currentResultIndex.collectAsState()
 
     val supportedLanguages = listOf(
         "English", "Bulgarian", "German", "Spanish", "French", "Italian", "Russian"
@@ -232,9 +243,9 @@ fun NoteDetailsScreen(
                             if (note.audioUrl != null) {
                                 ElevatedCard(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(0.dp),
+                                    shape = RoundedCornerShape(16.dp),
                                     colors = CardDefaults.elevatedCardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                        containerColor = MaterialTheme.colorScheme.surface
                                     ),
                                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                                 ) {
@@ -270,9 +281,9 @@ fun NoteDetailsScreen(
                                                     onValueChange = { viewModel.seekAudio(it) },
                                                     valueRange = 0f..audioDuration.toFloat().coerceAtLeast(1f),
                                                     colors = SliderDefaults.colors(
-                                                        thumbColor = MaterialTheme.colorScheme.secondary,
+                                                        thumbColor = MaterialTheme.colorScheme.primary,
                                                         activeTrackColor = MaterialTheme.colorScheme.primary,
-                                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                                        inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                                                     ),
                                                     modifier = Modifier.height(24.dp)
                                                 )
@@ -367,6 +378,41 @@ fun NoteDetailsScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
+                            // Search Bar UI
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { viewModel.onSearchQueryChanged(it) },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Search in note...") },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (searchResults.isNotEmpty()) {
+                                                Text(
+                                                    text = "${currentResultIndex + 1} / ${searchResults.size}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.outline
+                                                )
+                                                IconButton(onClick = { viewModel.goToPreviousSearchResult() }) {
+                                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous")
+                                                }
+                                                IconButton(onClick = { viewModel.goToNextSearchResult() }) {
+                                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next")
+                                                }
+                                            }
+                                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                                Icon(Icons.Default.Close, contentDescription = "Clear")
+                                            }
+                                        }
+                                    }
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
                             AnimatedVisibility(
                                 visible = isAiLoading || aiResponse != null,
                                 enter = fadeIn() + expandVertically()
@@ -381,7 +427,7 @@ fun NoteDetailsScreen(
                                     ) {
                                         Column(modifier = Modifier.padding(16.dp)) {
 
-                                            // Хедър на картата
+                                            // Card Header
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 modifier = Modifier.fillMaxWidth()
@@ -410,7 +456,7 @@ fun NoteDetailsScreen(
                                                 }
                                             }
 
-                                            // Текстът и Copy бутонът се показват САМО когато НЕ зареждаме
+                                            // The text and Copy button are shown ONLY when NOT loading
                                             if (!isAiLoading) {
                                                 aiResponse?.let {
                                                     Spacer(modifier = Modifier.height(12.dp))
@@ -435,10 +481,33 @@ fun NoteDetailsScreen(
                             HorizontalDivider()
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            Markdown(
-                                content = note.content,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            if (searchQuery.isBlank()) {
+                                Markdown(
+                                    content = note.content,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } else {
+                                val annotatedContent = buildAnnotatedString {
+                                    append(note.content)
+                                    searchResults.forEachIndexed { index, range ->
+                                        val color = if (index == currentResultIndex)
+                                            Color.Yellow.copy(alpha = 0.8f)
+                                        else
+                                            Color.Yellow.copy(alpha = 0.3f)
+
+                                        addStyle(
+                                            SpanStyle(background = color),
+                                            range.first,
+                                            range.last + 1
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = annotatedContent,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(32.dp))

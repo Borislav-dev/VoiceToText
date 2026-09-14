@@ -19,13 +19,30 @@ class SubscriptionRepositoryImpl(
             ?: throw IllegalStateException("User not authenticated")
 
         try {
-            supabaseClient.from(TABLE_NAME)
-                .select { filter { eq("user_id", userId) } }
-                .decodeSingle<UserSubscription>()
+            val response = supabaseClient.from(TABLE_NAME)
+                .select {
+                    filter { eq("user_id", userId) }
+                }
+            
+            // ВАЖНО: Вижте това в Logcat
+            println("SUBSCRIPTION_DEBUG: Raw Data from Supabase: ${response.data}")
+
+            val subscription = response.decodeSingleOrNull<UserSubscription>()
+            
+            if (subscription == null) {
+                println("SUBSCRIPTION_DEBUG: No record found. Creating default for $userId")
+                val defaultSub = UserSubscription(userId = userId, isPremium = false, freeRecordsLeft = 3)
+                // Опит за създаване на запис, ако липсва
+                try { supabaseClient.from(TABLE_NAME).insert(defaultSub) } catch(e: Exception) {}
+                defaultSub
+            } else {
+                println("SUBSCRIPTION_DEBUG: Loaded successfully. isPremium = ${subscription.isPremium}")
+                subscription
+            }
         } catch (e: Exception) {
-            // No record found — return default (3 free records, not premium)
-            println("No subscription record found for user $userId, using defaults.")
-            UserSubscription(userId = userId)
+            println("SUBSCRIPTION_DEBUG: Error fetching subscription: ${e.message}")
+            e.printStackTrace()
+            UserSubscription(userId = userId, isPremium = false, freeRecordsLeft = 3)
         }
     }
 
@@ -33,15 +50,16 @@ class SubscriptionRepositoryImpl(
         val userId = supabaseClient.auth.currentUserOrNull()?.id
             ?: throw IllegalStateException("User not authenticated")
 
-        val current = supabaseClient.from(TABLE_NAME)
-            .select { filter { eq("user_id", userId) } }
-            .decodeSingle<UserSubscription>()
+        val response = supabaseClient.from(TABLE_NAME).select { filter { eq("user_id", userId) } }
+        val current = response.decodeSingleOrNull<UserSubscription>() ?: return@runCatching
 
-        val newCount = (current.freeRecordsLeft - 1).coerceAtLeast(0)
-
-        supabaseClient.from(TABLE_NAME)
-            .update({ set("free_records_left", newCount) }) {
+        if (!current.isPremium) {
+            val newCount = (current.freeRecordsLeft - 1).coerceAtLeast(0)
+            supabaseClient.from(TABLE_NAME).update({ 
+                set("free_records_left", newCount) 
+            }) {
                 filter { eq("user_id", userId) }
             }
+        }
     }
 }
